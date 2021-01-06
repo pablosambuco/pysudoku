@@ -1,2 +1,2 @@
 # pysudoku
-Sudoku solver, migrated from ruby version: https://github.com/pablosambuco/rsudoku
+Sudoku solver, migrated from/inspired by ruby version: https://github.com/pablosambuco/rsudoku
