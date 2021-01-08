@@ -13,11 +13,13 @@ CUADRO = "Cuadro"
 LIMITE = 5
 SIZE = 9  # el valor debe ser un cuadrado. 2^2, 3^2, 4^2...
 
-def mensaje(celda,k,texto):
+
+def mensaje(celda, k, texto):
     txt = "Nivel {:02n}. {} [red]{}[/red] = {}"
     num = Tablero.vuelta
     pos = celda.posicion()
-    print(txt.format(num,texto,pos,k))
+    print(txt.format(num, texto, pos, k))
+
 
 class Celda:
     """Cada casillero del tablero debe ser una instancia de esta clase"""
@@ -74,9 +76,12 @@ class Celda:
         if self.vacia() and valor in self.posible:
             self.posible.remove(valor)
             if len(self.posible) == 1:
-                mensaje(self,self.posible[0],"Unico valor")
+                # mensaje(self,self.posible[0],"Unico valor")
                 return self.setvalor(self.posible[0])
-        return True
+        if self.posible:
+            return True
+        else:
+            return False
 
     def agrupar(self, grupo):
         """Metodo para agrupar las celdas dentro de filas, columnas y cuadros
@@ -166,7 +171,7 @@ class Grupo:
             valor (int): valor a quitar del resto de celdas del grupo
         """
         for caux in self.celdas:
-            if caux != celda:
+            if caux != celda and caux.vacia():
                 if not caux.quitar(valor):
                     return False
         return True
@@ -261,7 +266,7 @@ class Grupo:
         for celda in self.celdas:
             if celda.vacia():
                 if celda.incluye(comb):
-                    mensaje(celda,list(set(comb)&set(celda.posible)),"Combin por "+self.tipo)
+                    # mensaje(celda,list(set(comb)&set(celda.posible)),"Combin por "+self.tipo)
                     for valor in resto:
                         cambios += celda.quitar(valor)
 
@@ -281,16 +286,16 @@ class Grupo:
         for celda1 in self.celdas:
             if celda1.vacia():
                 for valor in celda1.posible:
-                    flag = self.incluye([valor])
-                    if flag == 1:
-                        mensaje(celda1,valor,"Asumiendo por " + self.tipo)
+                    cantidad = self.incluye([valor])
+                    if cantidad == 1:
+                        # mensaje(celda1,valor,"Asumiendo por " + self.tipo)
                         celda1.setvalor(valor)
                         cambios += 1
 
         # verifico combinaciones de N valores que se repiten en N celdas
         for celda in self.celdas:
             # recorro las combinaciones de distintas longitudes a partir de 2
-            for largo in range(2, len(celda.posible)):
+            for largo in range(1, len(celda.posible)):
                 for comb in combinations(celda.posible, largo):
                     cantidad = self.incluye(comb)
                     # si la cantidad es exactamente la longitud
@@ -365,34 +370,37 @@ class Tablero:
             for i in self.cuadros:
                 cambios += i.revisar()
 
-        if self.completo():
-            return cambios
-
-        for i in range(SIZE * SIZE):
-            celda = self.celdas[i]
+            verificar = True
             taux = None
             cambios_tmp = 0
-            verificar = True
-            if celda.vacia():
-                for k in celda.posible:
-                    if not taux or not taux.completo():
-                        mensaje(celda,k,"Probando")
+            for i in range(SIZE * SIZE):
+                celda = self.celdas[i]
+                if not celda.posible:
+                    break
+                if celda.vacia():
+                    taux = self.copiar()
+                    if not taux.completo():
+                        k = celda.posible[0]
                         cambios_tmp += 1
-                        taux = self.copiar()
                         if taux.celdas[i].setvalor(k):
                             Tablero.vuelta += 1
+                            # mensaje(celda,k,"Probando")
+                            # print(taux.table())
                             cambios_tmp += taux.resolver()
                             Tablero.vuelta -= 1
+                            if taux.completo():
+                                # print(taux.table())
+                                break
                         else:
+                            # mensaje(celda,k,"Quitando")
+                            celda.quitar(k)
                             verificar = False
+                            # print(self.table())
+                            break
             if verificar and taux and taux.verificar():
                 self.replicar(taux)
                 cambios += cambios_tmp
                 break
-            elif celda.vacia():
-                break
-            else:
-                print(self.table())
 
         return cambios
 
