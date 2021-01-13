@@ -15,6 +15,13 @@ SIZE = 9  # el valor debe ser un cuadrado. 2^2, 3^2, 4^2...
 
 
 def mensaje(celda, k, texto):
+    """Funcion para imprimir mensajes por pantalla
+
+    Args:
+        celda (Celda): Celda en la que se realiza la accion a describir
+        k (int/lint): Valor que se utiliza en la accion
+        texto (string): Descripcion de la accion realizada
+    """
     txt = "Nivel {:02n}. {} [red]{}[/red] = {}"
     num = Tablero.vuelta
     pos = celda.posicion()
@@ -51,12 +58,10 @@ class Celda:
             bool: Resultado de la accion
         """
         if valor in self.posible:
-            for grupo in self.grupos:
-                if not self.grupos[grupo].quitar(self, valor):
-                    # TODO si falla, deshacer los cambios al resto de celdas
-                    return False
             self.valor = valor
             self.posible = [valor]
+            for grupo in self.grupos:
+                self.grupos[grupo].quitar(self, valor)
             return True
         return False
 
@@ -75,13 +80,11 @@ class Celda:
         """
         if self.vacia() and valor in self.posible:
             self.posible.remove(valor)
+            #mensaje(self, valor, "Quitando")
             if len(self.posible) == 1:
-                # mensaje(self,self.posible[0],"Unico valor")
+                #mensaje(self, self.posible[0], "Unico valor")
                 return self.setvalor(self.posible[0])
-        if self.posible:
-            return True
-        else:
-            return False
+        return bool(self.posible)
 
     def agrupar(self, grupo):
         """Metodo para agrupar las celdas dentro de filas, columnas y cuadros
@@ -263,7 +266,6 @@ class Grupo:
         for celda in self.celdas:
             if celda.vacia():
                 if celda.incluye(comb):
-                    # mensaje(celda,list(set(comb)&set(celda.posible)),"Combin por "+self.tipo)
                     for valor in resto:
                         cambios += celda.quitar(valor)
 
@@ -336,7 +338,7 @@ class Tablero:
         aux = Tablero()
         for i in range(SIZE * SIZE):
             aux.celdas[i].valor = self.celdas[i].valor
-            aux.celdas[i].posible = [x for x in self.celdas[i].posible]
+            aux.celdas[i].posible = self.celdas[i].posible.copy()
         return aux
 
     def __getitem__(self, pos):
@@ -352,6 +354,22 @@ class Tablero:
         """
         return self.columnas[pos]
 
+    def revisar(self):
+        """Metodo de revision de filas/columnas/cuadros"""
+        cambios_tot = 0
+        for _ in range(LIMITE):
+            cambios = 0
+            for i in self.filas:
+                cambios += i.revisar()
+            for i in self.columnas:
+                cambios += i.revisar()
+            for i in self.cuadros:
+                cambios += i.revisar()
+            if cambios == 0:
+                break
+            cambios_tot += cambios
+        return cambios_tot
+
     def resolver(self):
         """Metodo para resolver el tablero
 
@@ -359,14 +377,12 @@ class Tablero:
             int: cantidad de cambios aplicados dadas para la resolucion
         """
         cambios = 0
-        for vuelta in range(LIMITE):
-            for i in self.filas:
-                cambios += i.revisar()
-            for i in self.columnas:
-                cambios += i.revisar()
-            for i in self.cuadros:
-                cambios += i.revisar()
+        cambios += self.revisar()
 
+        if self.verificar():
+            return cambios
+
+        for _ in range(LIMITE):
             verificar = True
             taux = None
             cambios_tmp = 0
@@ -381,19 +397,14 @@ class Tablero:
                         cambios_tmp += 1
                         if taux.celdas[i].setvalor(k):
                             Tablero.vuelta += 1
-                            # mensaje(celda,k,"Probando")
-                            # print(taux.table())
                             cambios_tmp += taux.resolver()
                             Tablero.vuelta -= 1
-                            if taux.completo():
-                                # print(taux.table())
-                                break
                         else:
-                            # mensaje(celda,k,"Quitando")
                             celda.quitar(k)
                             verificar = False
-                            # print(self.table())
                             break
+                    else:
+                        break
             if verificar and taux and taux.verificar():
                 self.replicar(taux)
                 cambios += cambios_tmp
@@ -425,7 +436,7 @@ class Tablero:
         """
         for i in range(SIZE * SIZE):
             self.celdas[i].valor = tablero.celdas[i].valor
-            self.celdas[i].posible = [x for x in tablero.celdas[i].posible]
+            self.celdas[i].posible = tablero.celdas[i].posible.copy()
 
     def completo(self):
         """Metodo simple de control
@@ -533,15 +544,15 @@ def main():
         # [0, 0, 5, 0, 8, 0, 7, 2, 0],
         #
         # Avanzado: 10 vueltas, con recursividad
-        [1, 0, 0, 9, 4, 0, 3, 0, 0],
-        [0, 0, 0, 0, 0, 8, 1, 0, 6],
-        [9, 0, 0, 0, 0, 0, 0, 2, 0],
-        [0, 7, 0, 1, 0, 4, 0, 0, 9],
-        [6, 0, 4, 0, 9, 0, 7, 0, 1],
-        [3, 0, 0, 6, 0, 7, 0, 4, 0],
-        [0, 9, 0, 0, 0, 0, 0, 0, 4],
-        [2, 0, 1, 4, 0, 0, 0, 0, 0],
-        [0, 0, 3, 0, 7, 6, 0, 0, 8],
+        # [1, 0, 0, 9, 4, 0, 3, 0, 0],
+        # [0, 0, 0, 0, 0, 8, 1, 0, 6],
+        # [9, 0, 0, 0, 0, 0, 0, 2, 0],
+        # [0, 7, 0, 1, 0, 4, 0, 0, 9],
+        # [6, 0, 4, 0, 9, 0, 7, 0, 1],
+        # [3, 0, 0, 6, 0, 7, 0, 4, 0],
+        # [0, 9, 0, 0, 0, 0, 0, 0, 4],
+        # [2, 0, 1, 4, 0, 0, 0, 0, 0],
+        # [0, 0, 3, 0, 7, 6, 0, 0, 8],
         #
         # Otros: 5 vueltas
         # [8, 0, 0, 0, 0, 4, 0, 0, 6],
@@ -588,15 +599,15 @@ def main():
         # [0, 0, 9, 0, 0, 0, 0, 0, 0],
         #
         # Imposible:
-        # [0, 0, 0, 4, 0, 3, 8, 0, 0],
-        # [5, 0, 0, 0, 9, 0, 0, 0, 0],
-        # [0, 8, 6, 0, 0, 0, 0, 0, 7],
-        # [0, 0, 5, 2, 0, 0, 0, 8, 4],
-        # [0, 2, 1, 0, 0, 0, 0, 5, 0],
-        # [0, 0, 0, 0, 0, 0, 7, 0, 9],
-        # [1, 5, 0, 7, 0, 0, 9, 0, 8],
-        # [4, 9, 0, 0, 1, 0, 2, 0, 0],
-        # [0, 0, 0, 0, 0, 0, 0, 7, 1],
+        [0, 0, 0, 4, 0, 3, 8, 0, 0],
+        [5, 0, 0, 0, 9, 0, 0, 0, 0],
+        [0, 8, 6, 0, 0, 0, 0, 0, 7],
+        [0, 0, 5, 2, 0, 0, 0, 8, 4],
+        [0, 2, 1, 0, 0, 0, 0, 5, 0],
+        [0, 0, 0, 0, 0, 0, 7, 0, 9],
+        [1, 5, 0, 7, 0, 0, 9, 0, 8],
+        [4, 9, 0, 0, 1, 0, 2, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 7, 1],
     ]
 
     print(carga)
