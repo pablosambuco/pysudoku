@@ -1,6 +1,7 @@
 """Python Sudoku Solver
 https://github.com/pablosambuco/pysudoku
 """
+
 # pylint: disable=redefined-builtin
 import math
 from itertools import combinations
@@ -12,6 +13,10 @@ FILA = "Fila"
 CUADRO = "Cuadro"
 LIMITE = 5
 SIZE = 9  # el valor debe ser un cuadrado. 2^2, 3^2, 4^2...
+
+VERBOSE = True
+
+#TODO Desacoplar las llamadas al logger
 
 
 def mensaje(celda, k, texto):
@@ -28,6 +33,29 @@ def mensaje(celda, k, texto):
     print(txt.format(num, texto, pos, k))
 
 
+class Logger:
+    """Logger"""
+
+    def __init__(self, verbose=True):
+        """
+        Logger configurable para salida condicional.
+
+        Args:
+            verbose (bool): si False, no se imprime nada
+        """
+        self.verbose = verbose
+
+    def print(self, *args, **kwargs):
+        """
+        Imprime mensaje si verbose está activo.
+
+        Los argumentos y kwargs son compatibles con print()
+        """
+        if not self.verbose:
+            return
+        print(*args, **kwargs)
+
+
 class Celda:
     """Cada casillero del tablero debe ser una instancia de esta clase"""
 
@@ -36,6 +64,7 @@ class Celda:
         self.valor = None
         self.posible = [x + 1 for x in range(SIZE)]
         self.grupos = {}
+        self.original = False
 
     def vacia(self):
         """Metodo de verificacion de contenido de la celda
@@ -45,7 +74,7 @@ class Celda:
         """
         return self.valor is None
 
-    def setvalor(self, valor):
+    def setvalor(self, valor, original=False, logger=None):
         """Metodo para establecer el contenido de la celda
 
         Se intenta quitar el valor posible de las celdas de los grupos.
@@ -60,12 +89,19 @@ class Celda:
         if valor in self.posible:
             self.valor = valor
             self.posible = [valor]
+            self.original = original
+            if logger:
+                logger.print(
+                    f"Nivel {Tablero.vuelta:02n}. Asignando {valor} a {self.posicion()}"
+                )
+            else:
+                print("logger nulo 1")
             for grupo in self.grupos:
-                self.grupos[grupo].quitar(self, valor)
+                self.grupos[grupo].quitar(self, valor, logger=logger)
             return True
         return False
 
-    def quitar(self, valor):
+    def quitar(self, valor, logger=None):
         """Metodo para quitar un valor posible de la celda
 
         Se quita el valor del listado de posibles.
@@ -80,10 +116,20 @@ class Celda:
         """
         if self.vacia() and valor in self.posible:
             self.posible.remove(valor)
-            #mensaje(self, valor, "Quitando")
+            if logger:
+                logger.print(
+                    f"Nivel {Tablero.vuelta:02n}. Quitando {valor} de {self.posicion()}"
+                )
+            else:
+                print("logger nulo 2")
             if len(self.posible) == 1:
-                #mensaje(self, self.posible[0], "Unico valor")
-                return self.setvalor(self.posible[0])
+                if logger:
+                    logger.print(
+                        f"Nivel {Tablero.vuelta:02n}. Único valor {self.posible[0]} en {self.posicion()}, asignando"
+                    )
+                else:
+                    print("logger nulo 3")
+                return self.setvalor(self.posible[0], logger=logger)
         return bool(self.posible)
 
     def agrupar(self, grupo):
@@ -121,6 +167,8 @@ class Celda:
             for valor in self.posible:
                 string += str(valor)
             string += "[/red]"
+        elif self.original:
+            string += "[bright_cyan]" + str(self.valor) + "[/bright_cyan]"
         else:
             string += "[green]" + str(self.valor) + "[/green]"
         return string
@@ -163,7 +211,7 @@ class Grupo:
         """
         return self.celdas[pos]
 
-    def quitar(self, celda, valor):
+    def quitar(self, celda, valor, logger=None):
         """Metodo para quitar un valor posible del grupo
 
         Args:
@@ -172,7 +220,7 @@ class Grupo:
         """
         for caux in self.celdas:
             if caux != celda and caux.vacia():
-                if not caux.quitar(valor):
+                if not caux.quitar(valor, logger=logger):
                     return False
         return True
 
@@ -250,7 +298,7 @@ class Grupo:
                     cantidad += 1
         return cantidad
 
-    def asignar(self, comb):
+    def asignar(self, comb, logger=None):
         """Metodo auxiliar para asignar valores posibles a celdas
 
         Args:
@@ -267,11 +315,11 @@ class Grupo:
             if celda.vacia():
                 if celda.incluye(comb):
                     for valor in resto:
-                        cambios += celda.quitar(valor)
+                        cambios += celda.quitar(valor, logger=logger)
 
         return cambios
 
-    def revisar(self):
+    def revisar(self, logger=None):
         """Metodo de revision del grupo
 
         Si un valor solo es posible en una celda, se asigna.
@@ -288,7 +336,7 @@ class Grupo:
                     cantidad = self.incluye([valor])
                     if cantidad == 1:
                         # mensaje(celda1,valor,"Asumiendo por " + self.tipo)
-                        celda1.setvalor(valor)
+                        celda1.setvalor(valor, logger=logger)
                         cambios += 1
 
         # verifico combinaciones de N valores que se repiten en N celdas
@@ -302,7 +350,7 @@ class Grupo:
                         cantidad_unitaria = self.incluye_unit(comb)
                         # si no hay celdas que cumplan
                         if cantidad_unitaria == 0:
-                            cambios += self.asignar(comb)
+                            cambios += self.asignar(comb, logger=logger)
         return cambios
 
 
@@ -354,65 +402,87 @@ class Tablero:
         """
         return self.columnas[pos]
 
-    def revisar(self):
+    def revisar(self, logger=None):
         """Metodo de revision de filas/columnas/cuadros"""
         cambios_tot = 0
         for _ in range(LIMITE):
             cambios = 0
             for i in self.filas:
-                cambios += i.revisar()
+                cambios += i.revisar(logger=logger)
             for i in self.columnas:
-                cambios += i.revisar()
+                cambios += i.revisar(logger=logger)
             for i in self.cuadros:
-                cambios += i.revisar()
+                cambios += i.revisar(logger=logger)
             if cambios == 0:
                 break
             cambios_tot += cambios
         return cambios_tot
 
-    def resolver(self):
-        """Metodo para resolver el tablero
+    def resolver(self, profundidad=0, logger=None):
+        if not self.valido():
+            if logger:
+                logger.print(
+                    f"[dim]↪ Estado inválido en profundidad {profundidad}[/dim]"
+                )
+            else:
+                print("logger nulo 4")
+            return 0  # Estado inválido
 
-        Returns:
-            int: cantidad de cambios aplicados dadas para la resolucion
-        """
-        cambios = 0
-        cambios += self.revisar()
-
+        cambios = self.revisar(logger=logger)
         if self.verificar():
-            return cambios
+            if logger:
+                logger.print(
+                    f"[green]✔ Tablero resuelto en profundidad {profundidad}[/green]"
+                )
+            else:
+                print("logger nulo 5")
+            return cambios  # Ya está resuelto
 
-        for _ in range(LIMITE):
-            verificar = True
-            taux = None
-            cambios_tmp = 0
-            for i in range(SIZE * SIZE):
-                celda = self.celdas[i]
-                if not celda.posible:
-                    break
-                if celda.vacia():
-                    taux = self.copiar()
-                    if not taux.completo():
-                        k = celda.posible[0]
-                        cambios_tmp += 1
-                        if taux.celdas[i].setvalor(k):
-                            Tablero.vuelta += 1
-                            cambios_tmp += taux.resolver()
-                            Tablero.vuelta -= 1
-                        else:
-                            celda.quitar(k)
-                            verificar = False
-                            break
+        # Heurística: elegir celda vacía con menor cantidad de opciones
+        celda_index = None
+        min_opciones = SIZE + 1
+        for i, celda in enumerate(self.celdas):
+            if celda.vacia() and 0 < len(celda.posible) < min_opciones:
+                celda_index = i
+                min_opciones = len(celda.posible)
+
+        # if celda_index is None:
+        #    return cambios  # No hay más celdas vacías
+
+        celda = self.celdas[celda_index]
+        for valor in celda.posible:
+            copia = self.copiar()
+            if logger:
+                logger.print(
+                    f"[blue]➤ Profundidad {profundidad}: probando {valor} en {celda.posicion()}[/blue]"
+                )
+            else:
+                print("logger nulo 6")
+            if copia.celdas[celda_index].setvalor(valor, logger=logger):
+                Tablero.vuelta += 1
+                resultado = copia.resolver(profundidad=profundidad + 1, logger=logger)
+                Tablero.vuelta -= 1
+
+                if copia.verificar():  # Se resolvió exitosamente
+                    if logger:
+                        logger.print(
+                            f"[green]✔ Solución encontrada en {celda.posicion()} con valor {valor}[/green]"
+                        )
                     else:
-                        break
-            if verificar and taux and taux.verificar():
-                self.replicar(taux)
-                cambios += cambios_tmp
-                break
+                        print("logger nulo 7")
+                    self.replicar(copia)
+                    return cambios + resultado
+                else:
+                    if logger:
+                        logger.print(
+                            f"[yellow]↩ Retroceso desde {celda.posicion()} con valor {valor}[/yellow]"
+                        )
+                    else:
+                        print("logger nulo 8")
 
-        return cambios
+        return cambios  # Ninguna opción válida funcionó
 
-    def cargar(self, tablero):
+    def cargar(self, tablero, logger=None):
         """Metodo de carga del tablero
 
         Args:
@@ -424,7 +494,7 @@ class Tablero:
         for i in range(SIZE):
             for j in range(SIZE):
                 if tablero[i][j] != 0:
-                    if not self[j][i].setvalor(tablero[i][j]):
+                    if not self[j][i].setvalor(tablero[i][j], True, logger=logger):
                         return False
         return True
 
@@ -447,6 +517,29 @@ class Tablero:
         for i in range(SIZE * SIZE):
             if self.celdas[i].vacia():
                 return False
+        return True
+
+    def valido(self):
+        """Metodo de control
+
+        Valida que el tablero no tenga conflictos evidentes (duplicados o celdas sin posibilidades).
+
+        Returns:
+            bool: True si el tablero está en un estado válido parcial
+        """
+        # Valida que ninguna celda tenga conjunto vacío de posibles
+        for celda in self.celdas:
+            if celda.vacia() and not celda.posible:
+                return False
+
+        # Verifica que no haya duplicados en valores asignados por grupo
+        for grupo in self.filas + self.columnas + self.cuadros:
+            vistos = set()
+            for celda in grupo.celdas:
+                if not celda.vacia():
+                    if celda.valor in vistos:
+                        return False
+                    vistos.add(celda.valor)
         return True
 
     def verificar(self):
@@ -488,7 +581,7 @@ class Tablero:
 
 def main():
     """main"""
-    tab = Tablero()
+
     carga = [
         # trivial
         # [1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -599,28 +692,41 @@ def main():
         # [0, 0, 9, 0, 0, 0, 0, 0, 0],
         #
         # Imposible:
-        [0, 0, 0, 4, 0, 3, 8, 0, 0],
-        [5, 0, 0, 0, 9, 0, 0, 0, 0],
-        [0, 8, 6, 0, 0, 0, 0, 0, 7],
-        [0, 0, 5, 2, 0, 0, 0, 8, 4],
-        [0, 2, 1, 0, 0, 0, 0, 5, 0],
-        [0, 0, 0, 0, 0, 0, 7, 0, 9],
-        [1, 5, 0, 7, 0, 0, 9, 0, 8],
-        [4, 9, 0, 0, 1, 0, 2, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 7, 1],
+        # [0, 0, 0, 4, 0, 3, 8, 0, 0],
+        # [5, 0, 0, 0, 9, 0, 0, 0, 0],
+        # [0, 8, 6, 0, 0, 0, 0, 0, 7],
+        # [0, 0, 5, 2, 0, 0, 0, 8, 4],
+        # [0, 2, 1, 0, 0, 0, 0, 5, 0],
+        # [0, 0, 0, 0, 0, 0, 7, 0, 9],
+        # [1, 5, 0, 7, 0, 0, 9, 0, 8],
+        # [4, 9, 0, 0, 1, 0, 2, 0, 0],
+        # [0, 0, 0, 0, 0, 0, 0, 7, 1],
+        #
+        # Prueba:
+        [8, 4, 0, 0, 0, 7, 3, 0, 1],
+        [0, 0, 0, 0, 5, 0, 0, 8, 0],
+        [0, 0, 9, 0, 3, 0, 7, 0, 0],
+        [0, 0, 6, 0, 0, 3, 0, 0, 4],
+        [4, 0, 0, 7, 0, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0, 8, 0, 0, 3],
+        [0, 0, 7, 0, 1, 0, 4, 0, 0],
+        [0, 0, 0, 0, 8, 0, 0, 2, 0],
+        [1, 6, 0, 0, 0, 2, 5, 0, 8],
     ]
 
-    print(carga)
+    logger = Logger(verbose=VERBOSE)
 
-    if tab.cargar(carga):
-        print(tab.table())
-        cambios = tab.resolver()
-        print("Completo:", tab.completo())
-        print("Verificar:", tab.verificar())
-        print("Cambios:", cambios)
-        print(tab.table())
+    logger.print(carga)
+    tab = Tablero()
+    if tab.cargar(carga, logger=logger):
+        logger.print(tab.table())
+        cambios = tab.resolver(logger=logger)
+        logger.print("Completo:", tab.completo())
+        logger.print("Verificar:", tab.verificar())
+        logger.print("Cambios:", cambios)
+        logger.print(tab.table())
     else:
-        print("[red]Sudoku mal armado[/red]")
+        logger.print("[red]Sudoku mal armado[/red]")
 
 
 if __name__ == "__main__":
