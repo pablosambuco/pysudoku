@@ -16,7 +16,7 @@ SIZE = 9  # el valor debe ser un cuadrado. 2^2, 3^2, 4^2...
 
 VERBOSE = True
 
-#TODO Desacoplar las llamadas al logger
+# TODO Desacoplar las llamadas al logger
 
 
 def mensaje(celda, k, texto):
@@ -92,12 +92,11 @@ class Celda:
             self.original = original
             if logger:
                 logger.print(
-                    f"Nivel {Tablero.vuelta:02n}. Asignando {valor} a {self.posicion()}"
+                    f"Nivel {Tablero.vuelta:02n}. "
+                    + f"Asignando {valor} a {self.posicion()}"
                 )
-            else:
-                print("logger nulo 1")
-            for grupo in self.grupos:
-                self.grupos[grupo].quitar(self, valor, logger=logger)
+            for k, v in self.grupos.items():
+                v.quitar(self, valor, logger)
             return True
         return False
 
@@ -118,18 +117,16 @@ class Celda:
             self.posible.remove(valor)
             if logger:
                 logger.print(
-                    f"Nivel {Tablero.vuelta:02n}. Quitando {valor} de {self.posicion()}"
+                    f"Nivel {Tablero.vuelta:02n}. "
+                    + f"Quitando {valor} de {self.posicion()}"
                 )
-            else:
-                print("logger nulo 2")
             if len(self.posible) == 1:
                 if logger:
                     logger.print(
-                        f"Nivel {Tablero.vuelta:02n}. Único valor {self.posible[0]} en {self.posicion()}, asignando"
+                        f"Nivel {Tablero.vuelta:02n}. Único valor "
+                        + f"{self.posible[0]} en {self.posicion()}, asignando"
                     )
-                else:
-                    print("logger nulo 3")
-                return self.setvalor(self.posible[0], logger=logger)
+                return self.setvalor(self.posible[0], logger)
         return bool(self.posible)
 
     def agrupar(self, grupo):
@@ -220,7 +217,7 @@ class Grupo:
         """
         for caux in self.celdas:
             if caux != celda and caux.vacia():
-                if not caux.quitar(valor, logger=logger):
+                if not caux.quitar(valor, logger):
                     return False
         return True
 
@@ -315,7 +312,7 @@ class Grupo:
             if celda.vacia():
                 if celda.incluye(comb):
                     for valor in resto:
-                        cambios += celda.quitar(valor, logger=logger)
+                        cambios += celda.quitar(valor, logger)
 
         return cambios
 
@@ -336,7 +333,7 @@ class Grupo:
                     cantidad = self.incluye([valor])
                     if cantidad == 1:
                         # mensaje(celda1,valor,"Asumiendo por " + self.tipo)
-                        celda1.setvalor(valor, logger=logger)
+                        celda1.setvalor(valor, logger)
                         cambios += 1
 
         # verifico combinaciones de N valores que se repiten en N celdas
@@ -350,7 +347,7 @@ class Grupo:
                         cantidad_unitaria = self.incluye_unit(comb)
                         # si no hay celdas que cumplan
                         if cantidad_unitaria == 0:
-                            cambios += self.asignar(comb, logger=logger)
+                            cambios += self.asignar(comb, logger)
         return cambios
 
 
@@ -408,11 +405,11 @@ class Tablero:
         for _ in range(LIMITE):
             cambios = 0
             for i in self.filas:
-                cambios += i.revisar(logger=logger)
+                cambios += i.revisar(logger)
             for i in self.columnas:
-                cambios += i.revisar(logger=logger)
+                cambios += i.revisar(logger)
             for i in self.cuadros:
-                cambios += i.revisar(logger=logger)
+                cambios += i.revisar(logger)
             if cambios == 0:
                 break
             cambios_tot += cambios
@@ -424,18 +421,15 @@ class Tablero:
                 logger.print(
                     f"[dim]↪ Estado inválido en profundidad {profundidad}[/dim]"
                 )
-            else:
-                print("logger nulo 4")
             return 0  # Estado inválido
 
-        cambios = self.revisar(logger=logger)
+        cambios = self.revisar(logger)
         if self.verificar():
             if logger:
                 logger.print(
-                    f"[green]✔ Tablero resuelto en profundidad {profundidad}[/green]"
+                    f"[green]✔ Tablero resuelto en "
+                    + f"profundidad {profundidad}[/green]"
                 )
-            else:
-                print("logger nulo 5")
             return cambios  # Ya está resuelto
 
         # Heurística: elegir celda vacía con menor cantidad de opciones
@@ -454,31 +448,28 @@ class Tablero:
             copia = self.copiar()
             if logger:
                 logger.print(
-                    f"[blue]➤ Profundidad {profundidad}: probando {valor} en {celda.posicion()}[/blue]"
+                    f"[blue]➤ Profundidad {profundidad}: "
+                    + f"probando {valor} en {celda.posicion()}[/blue]"
                 )
-            else:
-                print("logger nulo 6")
-            if copia.celdas[celda_index].setvalor(valor, logger=logger):
+            if copia.celdas[celda_index].setvalor(valor, logger):
                 Tablero.vuelta += 1
-                resultado = copia.resolver(profundidad=profundidad + 1, logger=logger)
+                resultado = copia.resolver(profundidad + 1, logger)
                 Tablero.vuelta -= 1
 
                 if copia.verificar():  # Se resolvió exitosamente
                     if logger:
                         logger.print(
-                            f"[green]✔ Solución encontrada en {celda.posicion()} con valor {valor}[/green]"
+                            "[green]✔ Solución encontrada en "
+                            + f"{celda.posicion()} con valor {valor}[/green]"
                         )
-                    else:
-                        print("logger nulo 7")
                     self.replicar(copia)
                     return cambios + resultado
                 else:
                     if logger:
                         logger.print(
-                            f"[yellow]↩ Retroceso desde {celda.posicion()} con valor {valor}[/yellow]"
+                            "[yellow]↩ Retroceso desde "
+                            + f"{celda.posicion()} con valor {valor}[/yellow]"
                         )
-                    else:
-                        print("logger nulo 8")
 
         return cambios  # Ninguna opción válida funcionó
 
@@ -494,7 +485,7 @@ class Tablero:
         for i in range(SIZE):
             for j in range(SIZE):
                 if tablero[i][j] != 0:
-                    if not self[j][i].setvalor(tablero[i][j], True, logger=logger):
+                    if not self[j][i].setvalor(tablero[i][j], True, logger):
                         return False
         return True
 
