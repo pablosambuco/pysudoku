@@ -16,9 +16,6 @@ SIZE = 9  # el valor debe ser un cuadrado. 2^2, 3^2, 4^2...
 
 VERBOSE = True
 
-# TODO Desacoplar las llamadas al logger
-
-
 def mensaje(celda, k, texto):
     """Funcion para imprimir mensajes por pantalla
 
@@ -54,6 +51,14 @@ class Logger:
         if not self.verbose:
             return
         print(*args, **kwargs)
+
+    def makeverbose():
+        self.verbose=True
+
+    def makesilent():
+        self.verbose=False
+
+
 
 
 class Celda:
@@ -465,12 +470,12 @@ class Tablero:
                         )
                     self.replicar(copia)
                     return cambios + resultado
-                else:
-                    if logger:
-                        logger.print(
-                            "[yellow]↩ Retroceso desde "
-                            + f"{celda.posicion()} con valor {valor}[/yellow]"
-                        )
+
+                if logger:
+                    logger.print(
+                        "[yellow]↩ Retroceso desde "
+                        + f"{celda.posicion()} con valor {valor}[/yellow]"
+                    )
 
         return cambios  # Ninguna opción válida funcionó
 
