@@ -52,10 +52,14 @@ class Logger:
             return
         print(*args, **kwargs)
 
-    def makeverbose():
+    def makeverbose(self):
+        """Fuerza que el log sea visible 
+        """
         self.verbose=True
 
-    def makesilent():
+    def makesilent(self):
+        """Fuerza que el log sea silencioso
+        """
         self.verbose=False
 
 
