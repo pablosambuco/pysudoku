@@ -95,7 +95,7 @@ class Celda:
                     f"Nivel {Tablero.vuelta:02n}. "
                     + f"Asignando {valor} a {self.posicion()}"
                 )
-            for k, v in self.grupos.items():
+            for _, v in self.grupos.items():
                 v.quitar(self, valor, logger)
             return True
         return False
@@ -178,7 +178,7 @@ class Celda:
         """
         fila = self.grupos[FILA].posicion
         columna = self.grupos[COLUMNA].posicion
-        return "({},{})".format(fila + 1, columna + 1)
+        return f"({fila + 1},{columna + 1})"
 
 
 class Grupo:
@@ -416,6 +416,7 @@ class Tablero:
         return cambios_tot
 
     def resolver(self, profundidad=0, logger=None):
+        """Metodo de resolución recursivo"""
         if not self.valido():
             if logger:
                 logger.print(
@@ -427,7 +428,7 @@ class Tablero:
         if self.verificar():
             if logger:
                 logger.print(
-                    f"[green]✔ Tablero resuelto en "
+                    "[green]✔ Tablero resuelto en "
                     + f"profundidad {profundidad}[/green]"
                 )
             return cambios  # Ya está resuelto
